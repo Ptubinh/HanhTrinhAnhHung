@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tài Xỉu</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 1rem;
+  }
+  h1 { font-size: 1.8rem; letter-spacing: 2px; color: #fbbf24; }
+  .balance {
+    font-size: 1.2rem;
+    background: #1e293b;
+    padding: 0.6rem 1.4rem;
+    border-radius: 999px;
+  }
+  .dice-box {
+    display: flex;
+    gap: 1.4rem;
+    background: #1e293b;
+    padding: 1.4rem 2.2rem;
+    border-radius: 16px;
+    min-width: 240px;
+    justify-content: center;
+    perspective: 400px;
+  }
+  .die {
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(145deg, #f8fafc, #e2e8f0);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 800;
+    color: #0f172a;
+    box-shadow: 0 6px 0 #94a3b8, 0 8px 16px rgba(0,0,0,0.4);
+    transition: transform 0.1s;
+  }
+  .die.shake {
+    animation: shake 0.12s ease-in-out infinite;
+  }
+  @keyframes shake {
+    0%   { transform: translate(0,0) rotate(0deg) scale(1); }
+    20%  { transform: translate(-6px,4px) rotate(-12deg) scale(1.05); }
+    40%  { transform: translate(5px,-5px) rotate(10deg) scale(0.95); }
+    60%  { transform: translate(-4px,3px) rotate(-8deg) scale(1.08); }
+    80%  { transform: translate(4px,-2px) rotate(6deg) scale(0.97); }
+    100% { transform: translate(0,0) rotate(0deg) scale(1); }
+  }
+  .die.land {
+    animation: land 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  @keyframes land {
+    0%   { transform: scale(1.2) rotate(8deg); }
+    60%  { transform: scale(0.9) rotate(-4deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+  .result {
+    font-size: 1.4rem;
+    font-weight: 700;
+    min-height: 2rem;
+  }
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    width: 100%;
+    max-width: 320px;
+  }
+  .bet-row {
+    display: flex;
+    gap: 0.6rem;
+  }
+  input[type="number"] {
+    flex: 1;
+    padding: 0.7rem;
+    border: none;
+    border-radius: 8px;
+    background: #1e293b;
+    color: #e2e8f0;
+    font-size: 1rem;
+  }
+  button {
+    padding: 0.75rem 1.2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.15s;
+  }
+  .btn-tai { background: #22c55e; color: #052e16; flex: 1; }
+  .btn-xiu { background: #ef4444; color: #450a0a; flex: 1; }
+  .btn-roll { background: #fbbf24; color: #422006; width: 100%; }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .history {
+    font-size: 0.9rem;
+    color: #94a3b8;
+    max-width: 320px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <h1>TÀI XỈU</h1>
+  <div class="balance">Số dư: <span id="money">1000</span> 🪙</div>
+  <div class="dice-box" id="diceBox">
+    <div class="die" id="d1">?</div>
+    <div class="die" id="d2">?</div>
+    <div class="die" id="d3">?</div>
+  </div>
+  <div class="result" id="result">Chọn Tài hoặc Xỉu</div>
+
+  <div class="controls">
+    <div class="bet-row">
+      <input type="number" id="bet" value="100" min="10" step="10">
+    </div>
+    <div class="bet-row">
+      <button class="btn-tai" id="btnTai">TÀI (11-17)</button>
+      <button class="btn-xiu" id="btnXiu">XỈU (4-10)</button>
+    </div>
+    <button class="btn-roll" id="btnRoll" disabled>LẮC XÚC XẮC</button>
+  </div>
+
+  <div class="history" id="history"></div>
+
+<script>
+  let money = 1000;
+  let choice = null;
+  const moneyEl = document.getElementById('money');
+  const d1 = document.getElementById('d1');
+  const d2 = document.getElementById('d2');
+  const d3 = document.getElementById('d3');
+  const dice = [d1, d2, d3];
+  const resultEl = document.getElementById('result');
+  const betEl = document.getElementById('bet');
+  const btnTai = document.getElementById('btnTai');
+  const btnXiu = document.getElementById('btnXiu');
+  const btnRoll = document.getElementById('btnRoll');
+  const historyEl = document.getElementById('history');
+  let lastResults = [];
+
+  function updateMoney() {
+    moneyEl.textContent = money;
+  }
+
+  function setChoice(c) {
+    choice = c;
+    btnTai.style.outline = c === 'tai' ? '3px solid #86efac' : 'none';
+    btnXiu.style.outline = c === 'xiu' ? '3px solid #fca5a5' : 'none';
+    btnRoll.disabled = false;
+    resultEl.textContent = c === 'tai' ? 'Bạn chọn TÀI' : 'Bạn chọn XỈU';
+    resultEl.style.color = '#e2e8f0';
+  }
+
+  btnTai.onclick = () => setChoice('tai');
+  btnXiu.onclick = () => setChoice('xiu');
+
+  function randFace() {
+    return 1 + Math.floor(Math.random() * 6);
+  }
+
+  btnRoll.onclick = () => {
+    const bet = parseInt(betEl.value) || 0;
+    if (bet < 10 || bet > money) {
+      resultEl.textContent = 'Cược không hợp lệ';
+      resultEl.style.color = '#f87171';
+      return;
+    }
+
+    btnRoll.disabled = true;
+    btnTai.disabled = true;
+    btnXiu.disabled = true;
+    resultEl.textContent = 'Đang lắc...';
+    resultEl.style.color = '#fbbf24';
+
+    // start shake
+    dice.forEach(d => {
+      d.classList.remove('land');
+      d.classList.add('shake');
+    });
+
+    let frames = 18;
+    const anim = setInterval(() => {
+      d1.textContent = randFace();
+      d2.textContent = randFace();
+      d3.textContent = randFace();
+      frames--;
+      if (frames <= 0) {
+        clearInterval(anim);
+        // stop shake + land
+        dice.forEach(d => {
+          d.classList.remove('shake');
+          d.classList.add('land');
+        });
+        finishRoll(bet);
+      }
+    }, 70);
+  };
+
+  function finishRoll(bet) {
+    const v1 = randFace();
+    const v2 = randFace();
+    const v3 = randFace();
+    d1.textContent = v1;
+    d2.textContent = v2;
+    d3.textContent = v3;
+    const total = v1 + v2 + v3;
+
+    const isTai = total >= 11 && total <= 17;
+    const win = (choice === 'tai' && isTai) || (choice === 'xiu' && !isTai);
+
+    if (win) {
+      money += bet;
+      resultEl.textContent = `THẮNG +${bet} | Tổng ${total} → ${isTai ? 'TÀI' : 'XỈU'}`;
+      resultEl.style.color = '#4ade80';
+    } else {
+      money -= bet;
+      resultEl.textContent = `THUA -${bet} | Tổng ${total} → ${isTai ? 'TÀI' : 'XỈU'}`;
+      resultEl.style.color = '#f87171';
+    }
+
+    lastResults.unshift(`${total}(${isTai ? 'T' : 'X'})`);
+    if (lastResults.length > 8) lastResults.pop();
+    historyEl.textContent = 'Lịch sử: ' + lastResults.join(' · ');
+
+    updateMoney();
+    choice = null;
+    btnTai.style.outline = 'none';
+    btnXiu.style.outline = 'none';
+    btnTai.disabled = false;
+    btnXiu.disabled = false;
+    btnRoll.disabled = true;
+
+    if (money < 10) {
+      setTimeout(() => {
+        resultEl.textContent = 'Hết tiền! Reset 1000';
+        money = 1000;
+        updateMoney();
+      }, 800);
+    }
+  }
+</script>
+</body>
+</html>
